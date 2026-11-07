@@ -174,6 +174,35 @@ track changes, it may help to increase this, possibly by at least a few seconds.
 The default is letting GStreamer decide the size, which at the time of this
 writing is 1000.
 
+#### audio/replaygain
+
+ReplayGain mode. Expects one of `off`, `track`, or `album`.
+
+- `off` disables ReplayGain.
+- `track` normalizes each track individually using its track gain.
+- `album` prefers the album gain when available, so that tracks from the same
+  album keep their relative loudness. If the album gain is missing, the track
+  gain is used instead.
+
+Default is `off`.
+
+The mode can be changed at runtime without restarting Mopidy, using the
+`core.audio.set_replaygain` JSON-RPC method.
+
+#### audio/replaygain_preamp
+
+Pre-amp in dB applied on top of the ReplayGain gain. Expects a number between
+`-60` and `60`. Default is `0`.
+
+#### audio/replaygain_fallback_gain
+
+Gain in dB used for streams that do not have any ReplayGain tags. Expects a
+number between `-60` and `60`. Default is `0`.
+
+Mopidy does not analyze audio to generate ReplayGain tags during playback. If
+your library lacks ReplayGain tags, you can either use this fallback gain, or
+run a tool such as `rganalysis` over your files beforehand.
+
 ### Logging section
 
 #### logging/verbosity

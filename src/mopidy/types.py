@@ -103,6 +103,16 @@ type QueryField = DistinctField | SearchField | TracklistField
 """A superset of all field names that can be used in any query."""
 
 
+# Audio types
+type ReplayGainMode = Literal["off", "track", "album"]
+"""ReplayGain mode.
+
+- `off`: Do not apply ReplayGain.
+- `track`: Apply track gain.
+- `album`: Prefer album gain, falling back to track gain.
+"""
+
+
 # Playback types
 class PlaybackState(enum.StrEnum):
     """Enum of playback states."""

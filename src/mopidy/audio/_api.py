@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 import pykka
 from pykka.typing import ActorMemberMixin, proxy_field, proxy_method
 
-from mopidy.types import DurationMs, PlaybackState
+from mopidy.types import DurationMs, PlaybackState, ReplayGainMode
 
 if TYPE_CHECKING:
     from mopidy._lib.gi import Gst
@@ -122,6 +122,69 @@ class Audio:
         """
         raise NotImplementedError
 
+    def get_replaygain(self) -> ReplayGainMode:
+        """Get the ReplayGain mode.
+
+        Returns:
+            One of `"off"`, `"track"`, or `"album"`.
+        """
+        raise NotImplementedError
+
+    def set_replaygain(self, mode: ReplayGainMode) -> bool:
+        """Set the ReplayGain mode.
+
+        Can be changed while audio is playing.
+
+        Args:
+            mode: The ReplayGain mode to use.
+
+        Returns:
+            `True` if successful, else `False`.
+        """
+        raise NotImplementedError
+
+    def get_replaygain_preamp(self) -> float:
+        """Get the ReplayGain pre-amp in dB.
+
+        Returns:
+            The pre-amp in dB.
+        """
+        raise NotImplementedError
+
+    def set_replaygain_preamp(self, preamp: float) -> bool:
+        """Set the ReplayGain pre-amp in dB.
+
+        Can be changed while audio is playing.
+
+        Args:
+            preamp: Pre-amp gain in dB.
+
+        Returns:
+            `True` if successful, else `False`.
+        """
+        raise NotImplementedError
+
+    def get_replaygain_fallback_gain(self) -> float:
+        """Get the gain in dB used for streams without ReplayGain tags.
+
+        Returns:
+            The fallback gain in dB.
+        """
+        raise NotImplementedError
+
+    def set_replaygain_fallback_gain(self, fallback_gain: float) -> bool:
+        """Set the gain in dB used for streams without ReplayGain tags.
+
+        Can be changed while audio is playing.
+
+        Args:
+            fallback_gain: Fallback gain in dB.
+
+        Returns:
+            `True` if successful, else `False`.
+        """
+        raise NotImplementedError
+
     def testing_gst__wait_for_state_change(self) -> None:
         """Block until any pending playback state changes are complete.
 
@@ -147,6 +210,12 @@ class AudioProxy(ActorMemberMixin, pykka.ActorProxy[AudioActor]):
     prepare_change = proxy_method(Audio.prepare_change)
     stop_playback = proxy_method(Audio.stop_playback)
     get_current_tags = proxy_method(Audio.get_current_tags)
+    get_replaygain = proxy_method(Audio.get_replaygain)
+    set_replaygain = proxy_method(Audio.set_replaygain)
+    get_replaygain_preamp = proxy_method(Audio.get_replaygain_preamp)
+    set_replaygain_preamp = proxy_method(Audio.set_replaygain_preamp)
+    get_replaygain_fallback_gain = proxy_method(Audio.get_replaygain_fallback_gain)
+    set_replaygain_fallback_gain = proxy_method(Audio.set_replaygain_fallback_gain)
     testing_gst__wait_for_state_change = proxy_method(
         Audio.testing_gst__wait_for_state_change
     )

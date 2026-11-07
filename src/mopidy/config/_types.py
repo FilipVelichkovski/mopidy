@@ -3,7 +3,18 @@ from __future__ import annotations
 import pathlib
 from collections.abc import Iterator, Mapping
 from contextvars import ContextVar
-from typing import Any, ClassVar, Literal, TypedDict, overload, override
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    TypedDict,
+    overload,
+    override,
+)
+
+if TYPE_CHECKING:
+    from mopidy.types import ReplayGainMode
 
 LogLevelName = Literal[
     "critical",
@@ -115,6 +126,9 @@ class AudioConfig(TypedDict):
     mixer_volume: int | None
     output: str
     buffer_time: int | None
+    replaygain: ReplayGainMode
+    replaygain_preamp: float
+    replaygain_fallback_gain: float
 
 
 class ProxyConfig(TypedDict):

@@ -25,7 +25,7 @@ from mopidy.audio._gst.types import (
     GstTag,
     GstWarning,
 )
-from mopidy.types import DurationMs
+from mopidy.types import DurationMs, ReplayGainMode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -120,6 +120,9 @@ class GstPlaybackPipeline:
     queue: Gst.Element
     """The queue in front of the audio sink. Seek events go here."""
 
+    rgvolume: Gst.Element
+    """The ReplayGain element, which is always kept in the chain."""
+
     volume: Gst.Element
     """The volume element, which the software mixer controls."""
 
@@ -136,12 +139,20 @@ class GstPlaybackPipeline:
         self._signals = Signals()
         self._event_handler_id: int | None = None
         self._pad: Gst.Pad | None = None
+        self._cancelling_replaygain = False
+
+        self._replaygain_mode: ReplayGainMode = self._config["audio"]["replaygain"]
+        self._replaygain_preamp: float = self._config["audio"]["replaygain_preamp"]
+        self._replaygain_fallback_gain: float = self._config["audio"][
+            "replaygain_fallback_gain"
+        ]
 
         self.playbin = self._make_playbin(on_about_to_finish, on_source_setup)
         self._setup_message_handling(on_bus_message)
         self.output_bin = make_output_bin(self._config["audio"]["output"])
         self._setup_event_handling(on_position)
-        self.queue, self.volume = self._make_audio_sink()
+        self.queue, self.rgvolume, self.volume = self._make_audio_sink()
+        self._setup_replaygain()
 
     def _make_playbin(
         self,
@@ -163,7 +174,7 @@ class GstPlaybackPipeline:
 
         return playbin
 
-    def _make_audio_sink(self) -> tuple[Gst.Element, Gst.Element]:
+    def _make_audio_sink(self) -> tuple[Gst.Element, Gst.Element, Gst.Element]:
         audio_sink = Gst.ElementFactory.make("bin", "audio-sink")
         if audio_sink is None:
             msg = "Failed to create GStreamer bin 'audio-sink'."
@@ -173,6 +184,11 @@ class GstPlaybackPipeline:
         queue = Gst.ElementFactory.make("queue")
         if queue is None:
             msg = "Failed to create GStreamer queue element."
+            raise exceptions.AudioException(msg)
+
+        rgvolume = Gst.ElementFactory.make("rgvolume")
+        if rgvolume is None:
+            msg = "Failed to create GStreamer rgvolume element."
             raise exceptions.AudioException(msg)
 
         volume = Gst.ElementFactory.make("volume")
@@ -191,11 +207,20 @@ class GstPlaybackPipeline:
         if buffer_time is not None and buffer_time > 0:
             queue.set_property("max-size-time", buffer_time * Gst.MSECOND)
 
-        audio_sink.add(queue)
-        audio_sink.add(self.output_bin)
-        audio_sink.add(volume)
+        rgvolume.set_property("album-mode", self._replaygain_mode == "album")
+        if self._replaygain_mode != "off":
+            rgvolume.set_property("pre-amp", self._replaygain_preamp)
+        else:
+            rgvolume.set_property("pre-amp", 0.0)
+        rgvolume.set_property("fallback-gain", self._replaygain_fallback_gain)
 
-        queue.link(volume)
+        audio_sink.add(queue)
+        audio_sink.add(rgvolume)
+        audio_sink.add(volume)
+        audio_sink.add(self.output_bin)
+
+        queue.link(rgvolume)
+        rgvolume.link(volume)
         volume.link(self.output_bin)
 
         queue_sink = queue.get_static_pad("sink")
@@ -207,7 +232,114 @@ class GstPlaybackPipeline:
 
         self.playbin.set_property("audio-sink", audio_sink)
 
-        return queue, volume
+        return queue, rgvolume, volume
+
+    def _setup_replaygain(self) -> None:
+        self._signals.connect(
+            self.rgvolume,
+            "notify::target-gain",
+            self._on_replaygain_target_gain_changed,
+        )
+        if self._replaygain_mode == "off":
+            self._cancel_replaygain()
+
+    def _on_replaygain_target_gain_changed(
+        self,
+        _element: Gst.Element,
+        _pspec: object,
+    ) -> None:
+        if self._replaygain_mode == "off":
+            self._cancel_replaygain()
+
+    def _cancel_replaygain(self) -> None:
+        """Keep ReplayGain from changing the volume while it is disabled.
+
+        The target gain includes the pre-amp. By subtracting the current
+        target gain from the pre-amp, the new target gain becomes zero, which
+        leaves the audio untouched.
+        """
+        if self._cancelling_replaygain:
+            return
+
+        target_gain = self.rgvolume.get_property("target-gain")
+        if abs(target_gain) < 1e-6:
+            return
+
+        self._cancelling_replaygain = True
+        try:
+            current_preamp = self.rgvolume.get_property("pre-amp")
+            new_preamp = max(-60.0, min(60.0, current_preamp - target_gain))
+            self.rgvolume.set_property("pre-amp", new_preamp)
+        finally:
+            self._cancelling_replaygain = False
+
+    def get_replaygain(self) -> ReplayGainMode:
+        """Get the ReplayGain mode.
+
+        Returns:
+            One of `"off"`, `"track"`, or `"album"`.
+        """
+        return self._replaygain_mode
+
+    def set_replaygain(self, mode: ReplayGainMode) -> bool:
+        """Set the ReplayGain mode.
+
+        Args:
+            mode: The ReplayGain mode to use.
+
+        Returns:
+            `True` if successful, else `False`.
+        """
+        self._replaygain_mode = mode
+        self.rgvolume.set_property("album-mode", mode == "album")
+        if mode == "off":
+            self._cancel_replaygain()
+        else:
+            self.rgvolume.set_property("pre-amp", self._replaygain_preamp)
+        return True
+
+    def get_replaygain_preamp(self) -> float:
+        """Get the ReplayGain pre-amp in dB.
+
+        Returns:
+            The pre-amp in dB.
+        """
+        return self._replaygain_preamp
+
+    def set_replaygain_preamp(self, preamp: float) -> bool:
+        """Set the ReplayGain pre-amp in dB.
+
+        Args:
+            preamp: Pre-amp gain in dB.
+
+        Returns:
+            `True` if successful, else `False`.
+        """
+        self._replaygain_preamp = preamp
+        if self._replaygain_mode != "off":
+            self.rgvolume.set_property("pre-amp", preamp)
+        return True
+
+    def get_replaygain_fallback_gain(self) -> float:
+        """Get the gain used for streams without ReplayGain tags.
+
+        Returns:
+            The fallback gain in dB.
+        """
+        return self._replaygain_fallback_gain
+
+    def set_replaygain_fallback_gain(self, fallback_gain: float) -> bool:
+        """Set the gain used for streams without ReplayGain tags.
+
+        Args:
+            fallback_gain: Fallback gain in dB.
+
+        Returns:
+            `True` if successful, else `False`.
+        """
+        self._replaygain_fallback_gain = fallback_gain
+        self.rgvolume.set_property("fallback-gain", fallback_gain)
+        return True
 
     def _setup_message_handling(
         self,

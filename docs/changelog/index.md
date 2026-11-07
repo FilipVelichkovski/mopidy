@@ -207,6 +207,11 @@ reference](../reference/media.md) has an example.
   bus message types, such as the `STREAM_COLLECTION` messages from HLS streams,
   caused it. The audio actor now drops these messages. (#2030, !2359)
 
+- Add ReplayGain support. The new `audio/replaygain` config option accepts
+  `off`, `track`, or `album`, and `audio/replaygain_preamp` and
+  `audio/replaygain_fallback_gain` control the pre-amp and the gain used for
+  streams without ReplayGain tags. The mode can be changed at runtime.
+
 ### Other changes
 
 - HTTP extension: Fix the debug log message for sent JSON-RPC responses. It was
@@ -505,6 +510,12 @@ Changes to the Core API affect Mopidy frontends and clients.
 - The [`Core`][mopidy.core.Core] class now requires the `config` argument to be
   present. As this argument is provided by Mopidy itself at runtime, this should
   only affect the setup of extension's test suites.
+
+#### Audio controller
+
+- Add [`AudioController`][mopidy.core.AudioController], available as
+  `core.audio`, with methods to get and set the ReplayGain mode, pre-amp, and
+  fallback gain at runtime.
 
 #### Playback controller
 

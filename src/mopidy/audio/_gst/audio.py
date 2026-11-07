@@ -29,7 +29,7 @@ from mopidy.audio._gst.types import (
     GstWarning,
 )
 from mopidy.audio._listener import AudioListener
-from mopidy.types import DurationMs, PlaybackState
+from mopidy.types import DurationMs, PlaybackState, ReplayGainMode
 
 if TYPE_CHECKING:
     from mopidy._exts.softwaremixer.mixer import SoftwareMixerProxy
@@ -414,6 +414,42 @@ class GstAudio(Audio, pykka.ThreadingActor):
         # TODO: should we return None when stopped?
         # TODO: support only fetching keys we care about?
         return self._tags
+
+    @override
+    def get_replaygain(self) -> ReplayGainMode:
+        assert self._pipeline
+
+        return self._pipeline.get_replaygain()
+
+    @override
+    def set_replaygain(self, mode: ReplayGainMode) -> bool:
+        assert self._pipeline
+
+        return self._pipeline.set_replaygain(mode)
+
+    @override
+    def get_replaygain_preamp(self) -> float:
+        assert self._pipeline
+
+        return self._pipeline.get_replaygain_preamp()
+
+    @override
+    def set_replaygain_preamp(self, preamp: float) -> bool:
+        assert self._pipeline
+
+        return self._pipeline.set_replaygain_preamp(preamp)
+
+    @override
+    def get_replaygain_fallback_gain(self) -> float:
+        assert self._pipeline
+
+        return self._pipeline.get_replaygain_fallback_gain()
+
+    @override
+    def set_replaygain_fallback_gain(self, fallback_gain: float) -> bool:
+        assert self._pipeline
+
+        return self._pipeline.set_replaygain_fallback_gain(fallback_gain)
 
     @override
     def testing_gst__wait_for_state_change(self) -> None:

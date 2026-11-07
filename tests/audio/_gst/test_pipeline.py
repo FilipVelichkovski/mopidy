@@ -19,6 +19,9 @@ def pipeline():
         "audio": {
             "output": "testoutput",
             "buffer_time": None,
+            "replaygain": "off",
+            "replaygain_preamp": 0.0,
+            "replaygain_fallback_gain": 0.0,
         },
     }
     pipeline = GstPlaybackPipeline(
@@ -34,6 +37,92 @@ def pipeline():
 
 def test_playbin_plays_audio_only(pipeline):
     assert pipeline.playbin.get_property("flags") == types.GstPlayFlags.AUDIO
+
+
+def test_rgvolume_is_in_the_audio_sink(pipeline):
+    assert pipeline.rgvolume.get_factory().get_name() == "rgvolume"
+
+
+def test_replaygain_is_disabled_by_default(pipeline):
+    assert pipeline.get_replaygain() == "off"
+    assert pipeline.rgvolume.get_property("target-gain") == 0.0
+
+
+def test_set_replaygain_sets_album_mode(pipeline):
+    assert pipeline.set_replaygain("album") is True
+
+    assert pipeline.get_replaygain() == "album"
+    assert pipeline.rgvolume.get_property("album-mode") is True
+
+    assert pipeline.set_replaygain("track") is True
+
+    assert pipeline.get_replaygain() == "track"
+    assert pipeline.rgvolume.get_property("album-mode") is False
+
+
+def test_set_replaygain_preamp_is_applied_when_enabled(pipeline):
+    pipeline.set_replaygain("track")
+    pipeline.set_replaygain_preamp(6.0)
+
+    assert pipeline.get_replaygain_preamp() == 6.0
+    assert pipeline.rgvolume.get_property("pre-amp") == 6.0
+    assert pipeline.rgvolume.get_property("target-gain") == 6.0
+
+def test_cancel_replaygain_clamps_preamp_to_bounds(pipeline):
+    pipeline.set_replaygain("off")
+
+    with mock.patch.object(pipeline.rgvolume, "get_property") as mock_get_prop:
+        def fake_get_property(name):
+            if name == "target-gain":
+                return -70.0
+            if name == "pre-amp":
+                return 0.0
+            return mock.DEFAULT
+
+        mock_get_prop.side_effect = fake_get_property
+        pipeline._cancel_replaygain()
+
+    assert pipeline.rgvolume.get_property("pre-amp") == 60.0
+
+
+
+def test_set_replaygain_fallback_gain_is_applied(pipeline):
+    pipeline.set_replaygain("track")
+    pipeline.set_replaygain_fallback_gain(-3.0)
+
+    assert pipeline.get_replaygain_fallback_gain() == -3.0
+    assert pipeline.rgvolume.get_property("fallback-gain") == -3.0
+    assert pipeline.rgvolume.get_property("target-gain") == -3.0
+
+
+def test_disabling_replaygain_cancels_the_applied_gain(pipeline):
+    pipeline.set_replaygain("track")
+    pipeline.set_replaygain_preamp(6.0)
+    assert pipeline.rgvolume.get_property("target-gain") == 6.0
+
+    pipeline.set_replaygain("off")
+
+    assert pipeline.get_replaygain() == "off"
+    assert pipeline.get_replaygain_preamp() == 6.0
+    assert pipeline.rgvolume.get_property("target-gain") == 0.0
+
+
+def test_disabling_replaygain_cancels_the_fallback_gain(pipeline):
+    pipeline.set_replaygain_fallback_gain(-3.0)
+
+    assert pipeline.get_replaygain_fallback_gain() == -3.0
+    assert pipeline.rgvolume.get_property("target-gain") == 0.0
+
+
+def test_enabling_replaygain_restores_the_preamp(pipeline):
+    pipeline.set_replaygain("track")
+    pipeline.set_replaygain_preamp(6.0)
+    pipeline.set_replaygain("off")
+
+    pipeline.set_replaygain("track")
+
+    assert pipeline.rgvolume.get_property("pre-amp") == 6.0
+    assert pipeline.rgvolume.get_property("target-gain") == 6.0
 
 
 def test_download_flag_is_passed_to_playbin_if_download_buffering_is_enabled(pipeline):

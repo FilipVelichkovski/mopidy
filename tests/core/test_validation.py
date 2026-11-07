@@ -38,6 +38,32 @@ def test_check_choice_error_message():
     assert str(excinfo.value) == "Expected one of (1, 2, 3), not 5"
 
 
+def test_check_number_with_valid_values():
+    for value in (0, 1.5, -1.5):
+        validation.check_number(value)
+
+
+def test_check_number_with_invalid_values():
+    for value in (True, False, "1.5", None, [], ()):
+        with pytest.raises(exceptions.ValidationError):
+            validation.check_number(value)
+
+
+def test_check_number_with_min_and_max():
+    validation.check_number(-60, min=-60, max=60)
+    validation.check_number(60, min=-60, max=60)
+
+    for value in (-60.1, 60.1):
+        with pytest.raises(exceptions.ValidationError):
+            validation.check_number(value, min=-60, max=60)
+
+
+def test_check_number_error_message():
+    with pytest.raises(exceptions.ValidationError) as excinfo:
+        validation.check_number("loud")
+    assert str(excinfo.value) == "Expected a number, not 'loud'"
+
+
 def test_check_instance_with_valid_choices():
     for value, cls in ((True, bool), ("a", str), (123, int)):
         validation.check_instance(value, cls)
