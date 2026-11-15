@@ -13,7 +13,6 @@ from mopidy import audio, backend, mixer
 from mopidy._lib import paths
 from mopidy._lib.version import get_version
 
-from ._audio import AudioController
 from ._history import HistoryController
 from ._library import LibraryController
 from ._listener import CoreListener
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
     from mopidy.mixer import MixerProxy
     from mopidy.types import Uri, UriScheme
 
-    from ._audio import AudioControllerProxy
     from ._history import HistoryControllerProxy
     from ._library import LibraryControllerProxy
     from ._mixer import MixerControllerProxy
@@ -52,9 +50,6 @@ class Core(
     The core API is the interface that is used by frontends like mopidy-http and
     mopidy-mpd to control music playback.
     """
-
-    audio: AudioController
-    """The audio controller."""
 
     library: LibraryController
     """The library controller."""
@@ -88,7 +83,6 @@ class Core(
 
         self.backends = Backends(backends or [])
 
-        self.audio = pykka.traversable(AudioController(audio=audio))
         self.library = pykka.traversable(
             LibraryController(backends=self.backends, core=self),
         )
@@ -102,7 +96,7 @@ class Core(
         )
         self.tracklist = pykka.traversable(TracklistController(core=self))
 
-        self._audio = audio
+        self.audio = audio
 
     def get_uri_schemes(self) -> list[UriScheme]:
         """Get list of URI schemes we can handle."""
@@ -147,10 +141,10 @@ class Core(
 
     @override
     def tags_changed(self, tags: set[str]) -> None:
-        if not self._audio or "title" not in tags:
+        if not self.audio or "title" not in tags:
             return
 
-        current_tags = self._audio.get_current_tags().get()
+        current_tags = self.audio.get_current_tags().get()
         if not current_tags:
             return
 
@@ -304,7 +298,6 @@ class Backends(list):
 
 
 class CoreProxy(ActorMemberMixin, pykka.ActorProxy[Core]):
-    audio: AudioControllerProxy
     library: LibraryControllerProxy
     history: HistoryControllerProxy
     mixer: MixerControllerProxy

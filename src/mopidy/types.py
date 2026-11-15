@@ -110,12 +110,14 @@ type QueryField = DistinctField | SearchField | TracklistField
 
 
 # Audio types
-type ReplayGainMode = Literal["off", "track", "album"]
-"""ReplayGain mode.
+type ReplayGainMode = Literal["off", "track", "album", "auto"]
+"""How ReplayGain evens out the loudness of tracks.
 
-- `off`: Do not apply ReplayGain.
-- `track`: Apply track gain.
-- `album`: Prefer album gain, falling back to track gain.
+- `off`: Play tracks as they are.
+- `track`: Use each track's own gain, so all tracks play about equally loud.
+- `album`: Use the album gain, so tracks keep their loudness relative to the
+  rest of their album. Tracks without an album gain use their track gain.
+- `auto`: `track` while random is on, `album` otherwise, like MPD.
 """
 
 

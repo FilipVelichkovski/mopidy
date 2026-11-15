@@ -3,15 +3,7 @@ from __future__ import annotations
 import pathlib
 from collections.abc import Iterator, Mapping
 from contextvars import ContextVar
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ClassVar,
-    Literal,
-    TypedDict,
-    overload,
-    override,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, overload, override
 
 if TYPE_CHECKING:
     from mopidy.types import ReplayGainMode

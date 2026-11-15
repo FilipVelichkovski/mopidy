@@ -109,6 +109,7 @@ class TracklistController:
             self._shuffled = self.get_tl_tracks()
             random.shuffle(self._shuffled)
         self._random = value
+        self.core.playback._on_random_changed(value)
 
     def get_repeat(self) -> bool:
         """Get repeat mode.

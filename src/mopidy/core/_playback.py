@@ -12,7 +12,13 @@ from pykka.typing import proxy_method
 from mopidy.core import _validation as validation
 from mopidy.core._state_storage import PlaybackControllerState
 from mopidy.exceptions import CoreError
-from mopidy.types import DurationMs, PlaybackState, TracklistId, UriScheme
+from mopidy.types import (
+    DurationMs,
+    PlaybackState,
+    ReplayGainMode,
+    TracklistId,
+    UriScheme,
+)
 
 from ._listener import CoreListener
 
@@ -62,8 +68,14 @@ class PlaybackController:
         self._start_at_position: DurationMs | None = None
         self._start_paused: bool = False
 
+        # Valid for the life of the controller. Starts as configured.
+        audio_config = (core._config or {}).get("audio", {})
+        self._replaygain_mode: ReplayGainMode = audio_config.get("replaygain", "off")
+
         if self._audio:
             self._audio.set_about_to_finish_callback(self._on_about_to_finish_callback)
+            if self._replaygain_mode != "off":
+                self._update_replaygain(random=False)  # Random is off at startup.
 
     def get_current_tl_track(self) -> TlTrack | None:
         """Get the currently playing or selected track.
@@ -96,6 +108,30 @@ class PlaybackController:
     def get_state(self) -> PlaybackState:
         """Get The playback state."""
         return self._state
+
+    def get_replaygain_mode(self) -> ReplayGainMode:
+        """Get the ReplayGain mode.
+
+        See [ReplayGainMode][mopidy.types.ReplayGainMode] for what each mode
+        does.
+        """
+        return self._replaygain_mode
+
+    def set_replaygain_mode(self, mode: ReplayGainMode) -> None:
+        """Set the ReplayGain mode.
+
+        Takes effect immediately, also during playback. Triggers the
+        `options_changed` event if the mode changes.
+
+        See [ReplayGainMode][mopidy.types.ReplayGainMode] for what each mode
+        does.
+        """
+        validation.check_choice(mode, validation.REPLAYGAIN_MODES)
+        if mode == self._replaygain_mode:
+            return
+        self._replaygain_mode = mode
+        self._update_replaygain(random=self.core.tracklist.get_random())
+        CoreListener.send("options_changed")
 
     def get_time_position(self) -> DurationMs:
         """Get time position in milliseconds."""
@@ -427,6 +463,20 @@ class PlaybackController:
         """
         self._current_tl_track = value
 
+    def _on_random_changed(self, random: bool) -> None:
+        """Called by the tracklist, because the `auto` mode follows random."""
+        if self._replaygain_mode == "auto":
+            self._update_replaygain(random=random)
+
+    def _update_replaygain(self, *, random: bool) -> None:
+        mode = self._replaygain_mode
+        if mode == "auto":
+            # Like MPD: shuffled tracks are unrelated, so even out each track.
+            # Tracks played in order keep their album's own dynamics.
+            mode = "track" if random else "album"
+        if self._audio:
+            self._audio.set_replaygain_mode(mode)
+
     def _set_state(self, new_state: PlaybackState) -> None:
         """Set the playback state.
 
@@ -692,6 +742,8 @@ class PlaybackControllerProxy:
     get_current_tlid = proxy_method(PlaybackController.get_current_tlid)
     get_stream_title = proxy_method(PlaybackController.get_stream_title)
     get_state = proxy_method(PlaybackController.get_state)
+    get_replaygain_mode = proxy_method(PlaybackController.get_replaygain_mode)
+    set_replaygain_mode = proxy_method(PlaybackController.set_replaygain_mode)
     get_time_position = proxy_method(PlaybackController.get_time_position)
     next = proxy_method(PlaybackController.next)
     pause = proxy_method(PlaybackController.pause)

@@ -11,6 +11,7 @@ from mopidy.types import (
     PlaybackState,
     Query,
     QueryValue,
+    ReplayGainMode,
     SearchField,
     TracklistField,
 )
@@ -37,6 +38,8 @@ def _get_literals(literal_type: Any) -> set[str]:
 
 
 PLAYBACK_STATES: set[str] = {ps.value for ps in PlaybackState}
+
+REPLAYGAIN_MODES: set[str] = _get_literals(ReplayGainMode)
 
 FIELD_TYPES: dict[str, type | UnionType] = {
     "album": str,
@@ -128,22 +131,6 @@ def check_integer(
 ) -> None:
     if not isinstance(arg, int):
         msg = f"Expected an integer, not {arg!r}"
-        raise exceptions.ValidationError(msg)
-    if min is not None and arg < min:
-        msg = f"Expected number larger or equal to {min}, not {arg!r}"
-        raise exceptions.ValidationError(msg)
-    if max is not None and arg > max:
-        msg = f"Expected number smaller or equal to {max}, not {arg!r}"
-        raise exceptions.ValidationError(msg)
-
-
-def check_number(
-    arg: int | float,
-    min: float | None = None,
-    max: float | None = None,
-) -> None:
-    if isinstance(arg, bool) or not isinstance(arg, int | float):
-        msg = f"Expected a number, not {arg!r}"
         raise exceptions.ValidationError(msg)
     if min is not None and arg < min:
         msg = f"Expected number larger or equal to {min}, not {arg!r}"
