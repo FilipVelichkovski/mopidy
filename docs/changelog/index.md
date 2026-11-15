@@ -145,6 +145,22 @@ reference](../reference/media.md) has an example.
   the playback state. Calls that do not match a playback command change
   nothing. The method will be removed in Mopidy 5.0. (!2355)
 
+### ReplayGain
+
+- Add ReplayGain, which plays tracks at about the same loudness from their
+  ReplayGain tags, without changing the dynamics within each track. Turn it on
+  with the new [`audio/replaygain`](../usage/config.md#audioreplaygain) config
+  value, and tune it with `audio/replaygain_preamp` and
+  `audio/replaygain_fallback_gain`. It is off by default.
+
+- Add [`get_replaygain_mode()`][mopidy.core.PlaybackController.get_replaygain_mode]
+  and [`set_replaygain_mode()`][mopidy.core.PlaybackController.set_replaygain_mode]
+  to the playback controller, so clients can change the mode while Mopidy runs.
+  A mode change triggers the `options_changed` event.
+
+- Add [`set_replaygain_mode()`][mopidy.audio.Audio.set_replaygain_mode] to the
+  [`Audio`][mopidy.audio.Audio] API.
+
 ### Core
 
 - In single and repeat mode with consume mode on, play the next track
@@ -221,11 +237,6 @@ reference](../reference/media.md) has an example.
   platforms with PyGObject 3.50, the version in Debian 13. GStreamer's extended
   bus message types, such as the `STREAM_COLLECTION` messages from HLS streams,
   caused it. The audio actor now drops these messages. (#2030, !2359)
-
-- Add ReplayGain support. The new `audio/replaygain` config option accepts
-  `off`, `track`, or `album`, and `audio/replaygain_preamp` and
-  `audio/replaygain_fallback_gain` control the pre-amp and the gain used for
-  streams without ReplayGain tags. The mode can be changed at runtime.
 
 ### Other changes
 
@@ -530,12 +541,6 @@ Changes to the Core API affect Mopidy frontends and clients.
 - The [`Core`][mopidy.core.Core] class now requires the `config` argument to be
   present. As this argument is provided by Mopidy itself at runtime, this should
   only affect the setup of extension's test suites.
-
-#### Audio controller
-
-- Add [`AudioController`][mopidy.core.AudioController], available as
-  `core.audio`, with methods to get and set the ReplayGain mode, pre-amp, and
-  fallback gain at runtime.
 
 #### Playback controller
 

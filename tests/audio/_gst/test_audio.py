@@ -32,12 +32,12 @@ class BaseTest:
         config = {
             "audio": {
                 "buffer_time": None,
-                "mixer": "foomixer",
-                "mixer_volume": None,
-                "output": "testoutput",
                 "replaygain": "off",
                 "replaygain_preamp": 0.0,
                 "replaygain_fallback_gain": 0.0,
+                "mixer": "foomixer",
+                "mixer_volume": None,
+                "output": "testoutput",
                 "visualizer": None,
             },
             "proxy": {"hostname": ""},
@@ -100,24 +100,6 @@ class TestAudio(BaseTest):
         self.audio.set_uri(self.uris[0])
         self.audio.start_playback()
         assert self.audio.stop_playback().get()
-
-    def test_replaygain_defaults_to_off(self):
-        assert self.audio.get_replaygain().get() == "off"
-
-    def test_set_replaygain(self):
-        assert self.audio.set_replaygain("album").get() is True
-
-        assert self.audio.get_replaygain().get() == "album"
-
-    def test_set_replaygain_preamp(self):
-        assert self.audio.set_replaygain_preamp(-3.5).get() is True
-
-        assert self.audio.get_replaygain_preamp().get() == -3.5
-
-    def test_set_replaygain_fallback_gain(self):
-        assert self.audio.set_replaygain_fallback_gain(-3.5).get() is True
-
-        assert self.audio.get_replaygain_fallback_gain().get() == -3.5
 
     @pytest.mark.skip(reason="Not implemented")
     def test_deliver_data(self):

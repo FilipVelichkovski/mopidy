@@ -2,17 +2,16 @@
 
 The overall architecture of Mopidy is organized around multiple frontends and
 backends. The frontends use the core API. The core actor makes multiple backends
-work as one. The backends connect to various music sources. The core actor uses
-the mixer actor to control volume, the audio controller to manage audio
-settings, while the backends use the audio actor to play audio.
+work as one. The backends connect to various music sources. The core actor use
+the mixer actor to control volume, while the backends use the audio actor to
+play audio.
 
 ```mermaid
 graph LR
   frontend[Multiple frontends] --> core[Core];
   core --> backend[Multiple backends];
   core --> mixer[Mixer];
-  core --> audio[Audio];
-  backend --> audio;
+  backend --> audio[Audio];
 ```
 
 ## Frontends
@@ -47,18 +46,16 @@ See [Core API](core.md) for more details.
 
 ```mermaid
 graph LR
-  core[Core] --> audio_ctrl{{Audio controller}};
-  core --> tracklist{{Tracklist controller}};
+  core[Core] --> tracklist{{Tracklist controller}};
   core --> library{{Library controller}};
   core --> playback{{Playback controller}};
   core --> playlists{{Playlists controller}};
   core --> history{{History controller}};
-  audio_ctrl --> audio[Audio];
   library --> local[Local backend];
   library --> spotify[Spotify backend];
   playback --> local;
   playback --> spotify;
-  playback --> audio;
+  playback --> audio[Audio];
   playlists --> local;
   playlists --> spotify;
 ```

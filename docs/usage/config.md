@@ -176,32 +176,40 @@ writing is 1000.
 
 #### audio/replaygain
 
-ReplayGain mode. Expects one of `off`, `track`, or `album`.
+ReplayGain mode. Expects `off`, `track`, `album`, or `auto`. Default is `off`.
 
-- `off` disables ReplayGain.
-- `track` normalizes each track individually using its track gain.
-- `album` prefers the album gain when available, so that tracks from the same
-  album keep their relative loudness. If the album gain is missing, the track
-  gain is used instead.
+ReplayGain plays tracks at about the same loudness, so you don't have to change
+the volume between them. It turns each track up or down by one fixed amount, so
+the quiet and loud passages within a track stay as they are.
 
-Default is `off`.
+- `off` plays tracks as they are.
+- `track` uses each track's own gain, so all tracks play about equally loud.
+- `album` uses the album gain, so tracks keep their loudness relative to the
+  rest of their album. Tracks without an album gain use their track gain.
+- `auto` uses `track` while random is on and `album` otherwise, like MPD.
 
-The mode can be changed at runtime without restarting Mopidy, using the
-`core.audio.set_replaygain` JSON-RPC method.
+The gain comes from the ReplayGain tags in your files. Mopidy doesn't analyze
+the audio itself, so tag your files with a tool such as
+[rsgain](https://github.com/complexlogic/rsgain) or
+`metaflac --add-replay-gain`. Tracks are never turned up so far that they clip.
+
+Clients can change the mode while Mopidy runs, with
+[`core.playback.set_replaygain_mode()`][mopidy.core.PlaybackController.set_replaygain_mode].
 
 #### audio/replaygain_preamp
 
-Pre-amp in dB applied on top of the ReplayGain gain. Expects a number between
-`-60` and `60`. Default is `0`.
+Extra gain in dB added to the ReplayGain of tagged tracks. Expects a number
+from `-15` to `15`. Default is `0`.
+
+Raise it if ReplayGain makes your music quieter than you like.
 
 #### audio/replaygain_fallback_gain
 
-Gain in dB used for streams that do not have any ReplayGain tags. Expects a
-number between `-60` and `60`. Default is `0`.
+Gain in dB for tracks without ReplayGain tags, such as most radio streams.
+Expects a number from `-15` to `15`. Default is `0`.
 
-Mopidy does not analyze audio to generate ReplayGain tags during playback. If
-your library lacks ReplayGain tags, you can either use this fallback gain, or
-run a tool such as `rganalysis` over your files beforehand.
+ReplayGain usually turns music down, so untagged tracks can sound louder than
+tagged ones. Setting this to around `-6` evens that out.
 
 ### Logging section
 
