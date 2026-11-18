@@ -22,16 +22,6 @@ def make_taglist(values):
     return Gst.TagList.new_from_string(f"taglist, {fields}")
 
 
-class ProbeInfo:
-    """Stands in for the Gst.PadProbeInfo that a pad probe gets."""
-
-    def __init__(self, event):
-        self._event = event
-
-    def get_event(self):
-        return self._event
-
-
 @pytest.mark.parametrize(
     ("mode", "expected_db"),
     [("off", 0.0), ("track", -4.3), ("album", -7.0)],
@@ -93,8 +83,24 @@ def test_peak_above_full_scale_does_not_turn_the_track_down():
     assert to_db(volume) == pytest.approx(-1.0)
 
 
+def test_unknown_peak_does_not_turn_the_track_up():
+    tags = GainTags(track_gain=6.0)
+
+    volume = compute_volume("track", tags, preamp=0, fallback_gain=0)
+
+    assert volume == 1.0
+
+
+def test_unknown_peak_still_turns_the_track_down():
+    tags = GainTags(track_gain=-6.0)
+
+    volume = compute_volume("track", tags, preamp=0, fallback_gain=0)
+
+    assert to_db(volume) == pytest.approx(-6.0)
+
+
 def test_volume_never_exceeds_what_the_volume_element_accepts():
-    tags = GainTags(track_gain=30.0)
+    tags = GainTags(track_gain=30.0, track_peak=0.01)
 
     volume = compute_volume("track", tags, preamp=0, fallback_gain=0)
 
@@ -117,13 +123,35 @@ def test_later_tags_keep_the_earlier_values():
     assert tags == GainTags(track_gain=-4.3, album_gain=-7.0)
 
 
+@pytest.mark.parametrize(
+    ("tag", "value"),
+    [
+        (Gst.TAG_TRACK_GAIN, 99999.0),
+        (Gst.TAG_TRACK_GAIN, -99999.0),
+        (Gst.TAG_TRACK_GAIN, math.inf),
+        (Gst.TAG_TRACK_GAIN, math.nan),
+        (Gst.TAG_ALBUM_GAIN, 60.0),
+        (Gst.TAG_TRACK_PEAK, -1.0),
+        (Gst.TAG_ALBUM_PEAK, 0.0),
+    ],
+)
+def test_broken_tag_values_are_ignored(tag, value):
+    taglist = Gst.TagList.new_empty()
+    taglist.add_value(Gst.TagMergeMode.REPLACE, tag, value)
+
+    assert GainTags().updated_from(taglist) == GainTags()
+
+
 @pytest.fixture
 def replaygain():
-    return ReplayGain(preamp=0.0, fallback_gain=-6.0)
+    replaygain = ReplayGain(preamp=0.0, fallback_gain=-6.0)
+    replaygain.element.set_state(Gst.State.PAUSED)
+    yield replaygain
+    replaygain.element.set_state(Gst.State.NULL)
 
 
 def send(replaygain, event):
-    replaygain._on_event(None, ProbeInfo(event))
+    replaygain.element.get_static_pad("sink").send_event(event)
 
 
 def volume_db(replaygain):

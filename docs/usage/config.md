@@ -191,7 +191,8 @@ the quiet and loud passages within a track stay as they are.
 The gain comes from the ReplayGain tags in your files. Mopidy doesn't analyze
 the audio itself, so tag your files with a tool such as
 [rsgain](https://github.com/complexlogic/rsgain) or
-`metaflac --add-replay-gain`. Tracks are never turned up so far that they clip.
+`metaflac --add-replay-gain`. Tracks are never turned up so far that they clip,
+so a quiet track with loud peaks can stay quieter than other tracks.
 
 Clients can change the mode while Mopidy runs, with
 [`core.playback.set_replaygain_mode()`][mopidy.core.PlaybackController.set_replaygain_mode].
@@ -201,12 +202,13 @@ Clients can change the mode while Mopidy runs, with
 Extra gain in dB added to the ReplayGain of tagged tracks. Expects a number
 from `-15` to `15`. Default is `0`.
 
-Raise it if ReplayGain makes your music quieter than you like.
+Raise it if ReplayGain makes your music quieter than you like. Tracks that
+would clip can't follow, so a high pre-amp makes loudness less even.
 
 #### audio/replaygain_fallback_gain
 
 Gain in dB for tracks without ReplayGain tags, such as most radio streams.
-Expects a number from `-15` to `15`. Default is `0`.
+Expects a number from `-15` to `0`. Default is `0`.
 
 ReplayGain usually turns music down, so untagged tracks can sound louder than
 tagged ones. Setting this to around `-6` evens that out.

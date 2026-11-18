@@ -67,7 +67,7 @@ app_schemas: list[ConfigSchema | MapConfigSchema] = [
             "buffer_time": types.Integer(optional=True, minimum=1),
             "replaygain": types.String(choices=("off", "track", "album", "auto")),
             "replaygain_preamp": types.Float(minimum=-15, maximum=15),
-            "replaygain_fallback_gain": types.Float(minimum=-15, maximum=15),
+            "replaygain_fallback_gain": types.Float(minimum=-15, maximum=0),
         },
     ),
     ConfigSchema(

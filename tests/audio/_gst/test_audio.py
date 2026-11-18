@@ -11,6 +11,7 @@ from mopidy._lib import paths
 from mopidy._lib.gi import Gst
 from mopidy.audio._gst import GstAudio
 from mopidy.audio._gst.pipeline import GstPlaybackPipeline
+from mopidy.audio._gst.replaygain import ReplayGain
 from mopidy.audio._gst.types import GstState
 from mopidy.types import PlaybackState
 from tests import dummy_audio, path_to_data_dir
@@ -124,6 +125,14 @@ class TestAudio(BaseTest):
     @pytest.mark.skip(reason="Not implemented")
     def test_invalid_output_raises_error(self):
         pass  # TODO: Implement test
+
+
+class TestReplayGainMode(BaseTest):
+    def test_mode_reaches_the_replaygain_element(self):
+        with mock.patch.object(ReplayGain, "set_mode") as set_mode:
+            self.audio.set_replaygain_mode("album").get()
+
+        set_mode.assert_called_once_with("album")
 
 
 class TestAudioDummy(DummyMixin, TestAudio):

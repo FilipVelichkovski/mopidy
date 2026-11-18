@@ -42,7 +42,7 @@ class GainTags:
         changes = {}
         for field, tag in _TAG_NAMES.items():
             found, value = taglist.get_double(tag)
-            if found:
+            if found and _is_valid(field, value):
                 changes[field] = value
         return dataclasses.replace(self, **changes)
 
@@ -53,6 +53,11 @@ _TAG_NAMES = {
     "album_gain": Gst.TAG_ALBUM_GAIN,
     "album_peak": Gst.TAG_ALBUM_PEAK,
 }
+
+
+def _is_valid(field: str, value: float) -> bool:
+    """Reject broken tag values, using the same limits as GStreamer's rgvolume."""
+    return -60 < value < 60 if field.endswith("gain") else value > 0
 
 
 def compute_volume(
@@ -78,16 +83,13 @@ def compute_volume(
     preferred, other = (album, track) if mode == "album" else (track, album)
     gain, peak = preferred if preferred[0] is not None else other
 
-    if gain is None:
-        return min(_db_to_linear(fallback_gain), MAX_VOLUME)
+    volume = _db_to_linear(fallback_gain if gain is None else gain + preamp)
 
-    volume = _db_to_linear(gain + preamp)
-    if peak:
-        # Don't turn the loudest sample up past full scale, as that would
-        # clip. Lossy files may have peaks above 1.0. Like GStreamer's
-        # rgvolume, we never turn a track down just because of that.
-        volume = min(volume, 1.0 / min(peak, 1.0))
-    return min(volume, MAX_VOLUME)
+    # Don't turn the loudest sample up past full scale, as that would clip.
+    # Like GStreamer's rgvolume, assume full scale if the peak is unknown, and
+    # never turn a track down just because a lossy file peaks above it.
+    limit = 1.0 / min(peak or 1.0, 1.0)
+    return min(volume, limit, MAX_VOLUME)
 
 
 def _db_to_linear(db: float) -> float:
